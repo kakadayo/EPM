@@ -23,8 +23,6 @@ def Entropy(input_ ,dim):
 def newre(softmax_f, softmax, min,pred):
     bs = softmax_f.size(0)
     for i in range(bs):
-        #print(softmax_f[i])
-
         if Entropy(softmax_f[i],0) <= args.kl and min[i] == 0:continue
         elif Entropy(softmax[i],0) <= args.kl :
             softmax_f[i] = softmax[i]
@@ -35,23 +33,13 @@ def newre(softmax_f, softmax, min,pred):
     return softmax_f,min
 
 def fill_tensor_based_on_percentile(tensor, r):
-    # 计算要取的位置
     k = int(tensor.size(1) * r)
     if (k < 1): k = 1
-    # 在每一行上找到前k个最小值
     values, _ = torch.kthvalue(tensor, k, dim=1)
-
-    # 获取输入张量的行数
     num_rows = tensor.size(0)
-
-    # 扩展percentile_values，使其形状与输入张量一致
     expanded_values = values.view(num_rows, 1).expand(-1, tensor.size(1))
-
-    # 比较每个值与对应的values[i]，并根据比较结果进行填充
     result = torch.where(tensor <= expanded_values, torch.tensor(0.1), torch.tensor(1.))
-
     return result
-
 
 def op_copy(optimizer):
     for param_group in optimizer.param_groups:
@@ -68,7 +56,6 @@ def lr_scheduler(optimizer, iter_num, max_iter, gamma=10, power=0.75):
         param_group['nesterov'] = True
     return optimizer
 
-
 def image_train(resize_size=256, crop_size=224, alexnet=False):
     if not alexnet:
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -82,7 +69,6 @@ def image_train(resize_size=256, crop_size=224, alexnet=False):
         transforms.ToTensor(), normalize
     ])
 
-
 def image_test(resize_size=256, crop_size=224, alexnet=False):
     if not alexnet:
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -95,9 +81,7 @@ def image_test(resize_size=256, crop_size=224, alexnet=False):
         transforms.ToTensor(), normalize
     ])
 
-
 def data_load(args):
-    ## prepare data
     dsets = {}
     dset_loaders = {}
     train_bs = args.batch_size
@@ -107,7 +91,6 @@ def data_load(args):
 
     dsize = len(txt_src)
     tr_size = int(0.9*dsize)
-    # print(dsize, tr_size, dsize - tr_size)
     _, te_txt = torch.utils.data.random_split(txt_src, [tr_size, dsize - tr_size])
     tr_txt = txt_src
 
@@ -183,10 +166,8 @@ def mixup(x, t_batch, netF, netB, netC, min,args):
     lam = (torch.from_numpy(np.random.beta(1., 1., [len(x)]))).float().cuda()
     # t_batch = torch.eye(args.class_num)[t_batch.argmax(dim=1)].cuda() # onehot
     shuffle_idx = torch.randperm(len(x))
-
-    mixed_x = (lam * x.permute(1, 2, 3, 0) + (1 - lam) * x[shuffle_idx].permute(1, 2, 3, 0)).permute(3, 0, 1, 2)  # 混合的x
-    mixed_t = (lam.unsqueeze(1) * t_batch + (1 - lam.unsqueeze(1)) * t_batch[shuffle_idx])  # 混合的标签
-
+    mixed_x = (lam * x.permute(1, 2, 3, 0) + (1 - lam) * x[shuffle_idx].permute(1, 2, 3, 0)).permute(3, 0, 1, 2) 
+    mixed_t = (lam.unsqueeze(1) * t_batch + (1 - lam.unsqueeze(1)) * t_batch[shuffle_idx]) 
     for i in range(t_batch.size(0)):
         if min[i]==args.batch_size+2:
             mixed_x[i] = x[i]
@@ -338,7 +319,7 @@ def train_target(args):
         l2 = torch.mean((F.kl_div(softmax_out_un, score_near, reduction='none').sum(-1).cuda()).sum(1))
 
 
-        #MPM
+        #EPM
         bs, k, c = score_near.size()
         min = torch.argmin(Entropy(score_near,2), dim=1)
         min_ = min.view(bs, 1, 1)
